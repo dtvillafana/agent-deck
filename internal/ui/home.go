@@ -14291,7 +14291,7 @@ func (h *Home) handleEditSessionDialogKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if c.Field == session.FieldAccount && strings.TrimSpace(c.Value) != "" {
 				accountSwitch, switchAccount = c.Value, true
 			}
-			if c.Field == session.FieldTool && strings.TrimSpace(c.Value) != "" && c.Value != inst.Tool {
+			if c.Field == session.FieldTool && strings.TrimSpace(c.Value) != "" && session.CanonicalToolName(c.Value) != session.CanonicalToolName(inst.Tool) {
 				switchHarness = c.Value
 			}
 		}
@@ -15649,6 +15649,11 @@ func createSessionTool(command string) (string, string) {
 	case "codex":
 		tool = "codex"
 	case "opencode":
+		tool = "opencode"
+	case "opencode2":
+		// v2 shim. Tool stays opencode so session discovery, status, and fork
+		// dispatch keep working; Command remembers the shim so launch and fork
+		// call opencode2 and take the v2 API fork path.
 		tool = "opencode"
 	case "pi":
 		tool = "pi"
