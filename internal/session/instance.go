@@ -3185,6 +3185,7 @@ func (i *Instance) queryOpenCodeSession() string {
 	return bestMatch
 }
 
+// queryOpenCodeSessionsHTTP reads legacy server session metadata for one project.
 func (i *Instance) queryOpenCodeSessionsHTTP(port int, projectPath string) ([]openCodeSessionMetadata, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -3259,6 +3260,7 @@ func cachedOpenCodeCLISessions(cacheKey string) ([]openCodeSessionMetadata, bool
 	return nil, false
 }
 
+// cacheOpenCodeCLISessions stores a copied discovery result and prunes expired entries.
 func cacheOpenCodeCLISessions(cacheKey string, sessions []openCodeSessionMetadata) {
 	now := time.Now()
 	openCodeCLIQueryCache.Lock()
@@ -5046,6 +5048,8 @@ func (i *Instance) noteObservedRuntimeLocked(observed string) {
 	i.tmuxSession.SetPatterns(resolved)
 }
 
+// runtimePatternToolLocked selects observed-agent patterns without changing launch identity.
+// The caller must hold i.mu.
 func (i *Instance) runtimePatternToolLocked() string {
 	if i.observedTool != "" && i.observedTool != "shell" {
 		return i.observedTool
