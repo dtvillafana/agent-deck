@@ -32,6 +32,15 @@ func TestCapturePanePreservesLeadingSpaces(t *testing.T) {
 	}
 }
 
+func TestScrubPreviewAgeIsStableAcrossFirstTick(t *testing.T) {
+	const want = "│ ⏱ <age>\n│ Retry in <age>"
+	for _, age := range []string{"just now", "5s ago", "3h 20m ago"} {
+		if got := scrubFrame("│ ⏱ " + age + "\n│ Retry in 5s"); got != want {
+			t.Errorf("age %q: got %q, want %q", age, got, want)
+		}
+	}
+}
+
 func TestScrubRemotePollKeepsDividerFixed(t *testing.T) {
 	a := "  ▾ remotes/lab (0) · unreachable: host down · poll 7ms    │ PREVIEW"
 	b := "  ▾ remotes/lab (0) · unreachable: host down · poll 12ms   │ PREVIEW"
