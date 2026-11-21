@@ -836,10 +836,10 @@ type Instance struct {
 	// instances reloaded from storage (built as struct literals). Combined with
 	// a zero lastStartTime it identifies a session that was added but never
 	// started, whose absent tmux is expected (idle), not a fault (error).
-	// Not serialized — a reloaded "never started" row that genuinely ran would
-	// surface a stored non-idle status; a brand-new row reloads as idle and
-	// re-derives correctly once the user starts it.
 	addedThisProcess bool
+	// knownUnstarted is loaded from an explicit zero last_started_at. A
+	// missing legacy stamp is not evidence that the session never ran.
+	knownUnstarted bool
 
 	// Rate-limits expensive session metadata sync work (Claude/Gemini/Codex)
 	// that runs from UpdateStatus while this instance lock is held.

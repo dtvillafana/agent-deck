@@ -22,10 +22,12 @@ const toolDataLastStartedAtKey = "last_started_at"
 
 // WriteLastStartedAtToToolData merges last_started_at into the given
 // tool_data JSON blob as a Unix-seconds integer. A zero time removes the key
-// (keeps the blob shape identical to a pre-fix row, so a session that was
-// added but genuinely never started stays indistinguishable from one saved
-// by an older binary).
+// unless the caller separately has evidence that the session never started.
 func WriteLastStartedAtToToolData(td json.RawMessage, t time.Time) json.RawMessage {
+	return writeStartStateToToolData(td, t, false)
+}
+
+func writeStartStateToToolData(td json.RawMessage, t time.Time, knownUnstarted bool) json.RawMessage {
 	m := map[string]json.RawMessage{}
 	if len(td) > 0 {
 		_ = json.Unmarshal(td, &m)
@@ -33,11 +35,20 @@ func WriteLastStartedAtToToolData(td json.RawMessage, t time.Time) json.RawMessa
 	if !t.IsZero() {
 		raw, _ := json.Marshal(t.Unix())
 		m[toolDataLastStartedAtKey] = raw
+	} else if knownUnstarted {
+		m[toolDataLastStartedAtKey] = json.RawMessage("0")
 	} else {
 		delete(m, toolDataLastStartedAtKey)
 	}
 	out, _ := json.Marshal(m)
 	return out
+}
+
+func readKnownUnstartedFromToolData(td json.RawMessage) bool {
+	var blob struct {
+		LastStartedAt *int64 `json:"last_started_at"`
+	}
+	return json.Unmarshal(td, &blob) == nil && blob.LastStartedAt != nil && *blob.LastStartedAt == 0
 }
 
 // ReadLastStartedAtFromToolData extracts last_started_at from the blob.

@@ -101,3 +101,28 @@ func TestLastStartedAt_SQLiteRoundTrip(t *testing.T) {
 		t.Fatalf("never-started instance got a non-zero LastStartedAt after round-trip: %v", freshLoaded.LastStartedAt)
 	}
 }
+
+func TestNeverStartedStatusSurvivesReload(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	storage := newTestStorage(t)
+
+	fresh := NewInstanceWithTool("never started", t.TempDir(), "claude")
+	fresh.CreatedAt = time.Now().Add(-time.Minute)
+	instances := []*Instance{fresh}
+	if err := storage.SaveWithGroups(instances, NewGroupTreeWithGroups(instances, nil)); err != nil {
+		t.Fatal(err)
+	}
+	loaded, _, err := storage.LoadWithGroups()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(loaded) != 1 {
+		t.Fatalf("got %d sessions after reload, want 1", len(loaded))
+	}
+	if err := loaded[0].UpdateStatus(); err != nil {
+		t.Fatal(err)
+	}
+	if got := loaded[0].Status; got != StatusIdle {
+		t.Fatalf("status after reloading a session that has never run = %s, want idle", got)
+	}
+}
