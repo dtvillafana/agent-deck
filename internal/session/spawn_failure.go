@@ -366,6 +366,15 @@ func (i *Instance) watchForFastDeath(command string, gen uint64, wake <-chan str
 			return
 		}
 
+		// A tracked command's wrapper writes the result before exiting. It
+		// has finished even if tmux has not marked the pane dead yet, or
+		// the pane was already removed. No liveness probe is needed.
+		if exitReceiptPath != "" {
+			if _, ok := readCommandExitReceipt(exitReceiptPath); ok {
+				return
+			}
+		}
+
 		// #2202: remain-on-exit (sandbox sessions, and anything configured
 		// that way) keeps the tmux session alive with a dead pane instead of
 		// tearing it down when the initial process exits — Exists() alone

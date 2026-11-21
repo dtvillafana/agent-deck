@@ -2,13 +2,34 @@ package session
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/asheshgoplani/agent-deck/internal/tmux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestFastDeathWatcherDoesNotProbeCompletedTrackedCommand(t *testing.T) {
+	skipIfNoTmuxBinary(t)
+	dir := t.TempDir()
+	receipt := filepath.Join(dir, "exit.status")
+	require.NoError(t, os.WriteFile(receipt, []byte("3\n"), 0o600))
+	socket := deadRowSocket(t, "tracked-command", "unrelated")
+	pane := tmux.NewSession("completed-command", dir)
+	pane.SocketName = socket
+	inst := &Instance{ID: "completed-command", Tool: "shell"}
+
+	before := tmux.SubprocessStarts()
+	inst.watchForFastDeath("exit 3", 0, nil, pane, inst.ID, inst.Tool, sessionLog,
+		filepath.Join(dir, "lifecycle.log"), dir, "", "", receipt)
+	assert.EqualValues(t, 0, tmux.SubprocessStarts()-before, "a completed command needs no tmux probe")
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	require.Len(t, entries, 1, "only the tracked command receipt should exist")
+}
 
 // Issue #1580: a failing custom command (e.g. a broken `codex.command` npx
 // wrapper) whose initial process dies at/near spawn produced a bare "error"
