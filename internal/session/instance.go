@@ -836,10 +836,10 @@ type Instance struct {
 	// instances reloaded from storage (built as struct literals). Combined with
 	// a zero lastStartTime it identifies a session that was added but never
 	// started, whose absent tmux is expected (idle), not a fault (error).
-	// Not serialized — a reloaded "never started" row that genuinely ran would
-	// surface a stored non-idle status; a brand-new row reloads as idle and
-	// re-derives correctly once the user starts it.
 	addedThisProcess bool
+	// knownUnstarted is loaded from an explicit zero last_started_at. A
+	// missing legacy stamp is not evidence that the session never ran.
+	knownUnstarted bool
 
 	// Rate-limits expensive session metadata sync work (Claude/Gemini/Codex)
 	// that runs from UpdateStatus while this instance lock is held.
@@ -1677,6 +1677,8 @@ func (i *Instance) Start() (startErr error) {
 		}
 	case i.Tool == "gemini":
 		command = i.buildGeminiCommand(i.Command)
+	case i.Tool == "antigravity":
+		command = i.antigravityCommand()
 	case i.Tool == "copilot":
 		command = buildCopilotCommand(i)
 		// Record start time for session ID detection (Unix millis)
@@ -2087,6 +2089,8 @@ func (i *Instance) StartWithMessage(message string) (startErr error) {
 		}
 	case i.Tool == "gemini":
 		command = i.buildGeminiCommand(i.Command)
+	case i.Tool == "antigravity":
+		command, promptEmbeddedInCommand = i.buildAntigravityCommandWithPrompt(message)
 	case i.Tool == "opencode":
 		if i.IsForkAwaitingStart {
 			command = i.buildOpenCodeCommand(i.consumeForkStartCommand())

@@ -341,6 +341,10 @@ func (w *widthRun) capture(step string) {
 			return !strings.Contains(pane, "⟳ Reloading..."), nil
 		}, 5*time.Second)
 	}
+	w.recordFrame(step, raw)
+}
+
+func (w *widthRun) recordFrame(step, raw string) {
 	w.frames = append(w.frames, frameCapture{
 		step:  step,
 		width: w.spec.name,

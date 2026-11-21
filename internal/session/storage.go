@@ -78,7 +78,8 @@ type InstanceData struct {
 	// Persisted via the tool_data extras zone (see last_started_persist.go),
 	// not a typed SQL column. Zero means unknown (old record or never
 	// started).
-	LastStartedAt time.Time `json:"last_started_at,omitempty"`
+	LastStartedAt  time.Time `json:"last_started_at,omitempty"`
+	knownUnstarted bool
 	// GenericSessionID is the custom [tools.*] conversation id (extras zone),
 	// with the tool/location scope it is only resumable under.
 	GenericSessionID       string    `json:"generic_session_id,omitempty"`
@@ -1222,7 +1223,7 @@ func instanceToRow(inst *Instance) (*statedb.InstanceRow, error) {
 	// #1704 blocker fix: same extras-zone treatment for last_started_at, so
 	// `status --stale` (and ShouldSkipRestart's freshness guard) see a real
 	// value from a fresh CLI process instead of always-zero.
-	toolData = WriteLastStartedAtToToolData(toolData, inst.LastStartedAt)
+	toolData = writeStartStateToToolData(toolData, inst.LastStartedAt, inst.neverStarted())
 	// Custom [tools.*] conversation id — reboot-safe resume when resume_flag set.
 	// intentionalClear makes sticky MergeToolDataExtras honor operator clears
 	// without breaking stale-empty full-table saves (see generic_session_persist.go).
@@ -1422,6 +1423,7 @@ func (s *Storage) LoadLite() ([]*InstanceData, []*GroupData, error) {
 			LimitVerdictResetAt:       ReadLimitVerdictResetFromToolData(r.ToolData),
 			ClaudeSessionIDUnverified: ReadClaudeSessionUnverifiedFromToolData(r.ToolData),
 			LastStartedAt:             ReadLastStartedAtFromToolData(r.ToolData),
+			knownUnstarted:            readKnownUnstartedFromToolData(r.ToolData),
 			GenericSessionID:          ReadGenericSessionIDFromToolData(r.ToolData),
 			GenericDetectedAt:         ReadGenericDetectedAtFromToolData(r.ToolData),
 			GenericSessionTool:        genericScopeTool(r.ToolData),
@@ -1572,6 +1574,7 @@ func (s *Storage) LoadWithGroupsSnapshot() ([]*Instance, []*GroupData, *statedb.
 			LimitVerdictResetAt:       ReadLimitVerdictResetFromToolData(r.ToolData),
 			ClaudeSessionIDUnverified: ReadClaudeSessionUnverifiedFromToolData(r.ToolData),
 			LastStartedAt:             ReadLastStartedAtFromToolData(r.ToolData),
+			knownUnstarted:            readKnownUnstartedFromToolData(r.ToolData),
 			GenericSessionID:          ReadGenericSessionIDFromToolData(r.ToolData),
 			GenericDetectedAt:         ReadGenericDetectedAtFromToolData(r.ToolData),
 			GenericSessionTool:        genericScopeTool(r.ToolData),
@@ -1921,6 +1924,7 @@ func (s *Storage) convertToInstances(data *StorageData) ([]*Instance, []*GroupDa
 			IntendedSwitch:               instData.IntendedSwitch,
 			LimitVerdictResetAt:          instData.LimitVerdictResetAt,
 			LastStartedAt:                instData.LastStartedAt,
+			knownUnstarted:               instData.knownUnstarted,
 			GenericSessionID:             instData.GenericSessionID,
 			GenericDetectedAt:            instData.GenericDetectedAt,
 			GenericSessionTool:           instData.GenericSessionTool,

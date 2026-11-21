@@ -119,19 +119,12 @@ func (i *Instance) shellForegroundRunning() bool {
 }
 
 // neverStarted reports whether this session was added but never started, so an
-// absent tmux session is expected rather than a fault. Two conditions must both
-// hold (caller holds i.mu):
-//
-//  1. The instance was added in THIS process (addedThisProcess), not reloaded
-//     from storage. A reloaded session whose tmux later dies is a genuine error
-//     (instance_cli_parity_test.go TestUpdateStatus_CLIvsTUIParity_Error builds
-//     a reloaded struct literal, so addedThisProcess is false there).
-//  2. Start() was never called (lastStartTime is zero). A started-then-killed
-//     session has a non-zero lastStartTime and must surface as error
-//     (lifecycle_regression_test.go phase5).
-//  3. The status is still the pristine post-add state (idle or starting).
+// absent tmux session is expected rather than a fault. A legacy row with no
+// start stamp is ambiguous and must not be silently treated as unstarted.
+// Caller holds i.mu.
 func (i *Instance) neverStarted() bool {
-	return i.addedThisProcess && i.lastStartTime.IsZero() &&
+	return (i.addedThisProcess || i.knownUnstarted) &&
+		i.LastStartedAt.IsZero() && i.lastStartTime.IsZero() &&
 		(i.Status == StatusIdle || i.Status == StatusStarting)
 }
 

@@ -603,7 +603,23 @@ func stepAttachShell(w *widthRun) error {
 	}, 5*time.Second); err != nil {
 		return err
 	}
-	w.capture("12-attach-shell")
+	// A ready child pane does not prove the attached client has repainted.
+	// Record the same frame that proves the shell and its status line are
+	// visible to the user, not a second capture during a blank redraw.
+	var attachedFrame string
+	if err := w.waitFor(func() (bool, error) {
+		pane, err := w.pane()
+		if err != nil {
+			return false, err
+		}
+		attachedFrame = pane
+		lines := strings.SplitN(strings.TrimSpace(pane), "\n", 2)
+		return shellPromptReady(lines[0]) &&
+			strings.Contains(pane, "[agentdeck_shell-live_"), nil
+	}, 8*time.Second); err != nil {
+		return fmt.Errorf("attached shell did not repaint: %w", err)
+	}
+	w.recordFrame("12-attach-shell", attachedFrame)
 	return nil
 }
 
@@ -677,6 +693,9 @@ func stepFork(w *widthRun) error {
 		pane, err := w.pane()
 		if err != nil {
 			return false, err
+		}
+		if strings.Contains(pane, "restarted into ") {
+			return false, nil
 		}
 		if w.spec.width == 80 {
 			// The 24-line preview has no room to show the client's output.

@@ -23,6 +23,9 @@ var scrubRules = []scrubRule{
 	{"semver", regexp.MustCompile(`\bv?\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?\b`), "<version>"},
 	{"clock-time", regexp.MustCompile(`\b\d{1,2}:\d{2}(:\d{2})?\b`), "<time>"},
 	{"iso-date", regexp.MustCompile(`\b\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:?\d{2})?)?\b`), "<date>"},
+	// The preview can cross from "just now" to "5s ago" while the same
+	// screen is being exercised. Normalize the whole elapsed-time label.
+	{"preview-age", regexp.MustCompile(`⏱ (?:just now|\d+(?:mo|[smhdw])(?: \d+(?:mo|[smhdw]))? ago)\b`), "⏱ <age>"},
 	{"relative-age", regexp.MustCompile(`\b\d+(\.\d+)?(s|ms|m|h|d|w)\b`), "<age>"},
 	{"just-now", regexp.MustCompile(`\bjust now\b`), "<age>"},
 	// The attach-shell step's real system-shell prompt embeds the sandbox
