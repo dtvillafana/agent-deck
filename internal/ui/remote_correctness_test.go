@@ -6,7 +6,10 @@ package ui
 
 import (
 	"errors"
+	"strings"
 	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/asheshgoplani/agent-deck/internal/session"
 )
@@ -73,10 +76,45 @@ func TestRemoteRename_RefusedRevertsTitle(t *testing.T) {
 }
 
 func TestRemoteCreate_QueuedIsNoticeNotError(t *testing.T) {
-	var queued *session.RemoteSessionQueuedError
-	err := error(&session.RemoteSessionQueuedError{ID: "x", Title: "job"})
-	if !errors.As(err, &queued) || queued.Title != "job" {
-		t.Fatal("the queued outcome must be a typed error the TUI can tell apart from a failure")
+	home := newTestHomeWithItems(100, 30, nil)
+	msg := remoteCreateOutcomeMsg("box", session.RemoteAddOptions{}, "",
+		&session.RemoteSessionQueuedError{ID: "x", Title: "job", Group: "misc"}).(remoteSessionCreatedMsg)
+	if msg.err != nil || msg.created == nil || msg.created.ID != "x" ||
+		msg.created.Status != string(session.StatusQueued) || msg.created.Group != "misc" {
+		t.Fatalf("expected a confirmed queued row, got %+v", msg)
+	}
+	home.Update(msg)
+	if !isFooterNotice(home.err) || !strings.Contains(home.err.Error(), "group 'misc'") {
+		t.Fatalf("expected a queue notice naming the group, got %v", home.err)
+	}
+	if got := remoteTitles(home, "box"); len(got) != 1 || got[0] != "job" {
+		t.Fatalf("expected the queued row immediately, got %v", got)
+	}
+}
+
+func TestRemoteQueuedRowDoesNotAttach(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		embedded bool
+		key      tea.KeyMsg
+	}{
+		{"classic Enter", false, tea.KeyMsg{Type: tea.KeyEnter}},
+		{"embedded Enter", true, tea.KeyMsg{Type: tea.KeyEnter}},
+		{"embedded Alt+Enter", true, tea.KeyMsg{Type: tea.KeyEnter, Alt: true}},
+		{"classic Shift+Enter", false, *ParseCSIu([]byte("\x1b[13;2u"))},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rs := session.RemoteSessionInfo{ID: "x", Title: "job", Group: "misc", Status: string(session.StatusQueued)}
+			home := newTestHomeWithItems(100, 30, []session.Item{{Type: session.ItemTypeRemoteSession, RemoteName: "box", RemoteSession: &rs}})
+			home.embeddedLayout = tc.embedded
+			_, cmd := home.handleMainKey(tc.key)
+			if cmd != nil || home.isAttaching.Load() || home.insertMode {
+				t.Fatal("queued row tried to attach before it had a pane")
+			}
+			if !isFooterNotice(home.err) || !strings.Contains(home.err.Error(), "group 'misc'") {
+				t.Fatalf("expected a queue notice naming the group, got %v", home.err)
+			}
+		})
 	}
 }
 

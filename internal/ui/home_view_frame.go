@@ -2632,6 +2632,11 @@ func (h *Home) curatedContextHints(item session.Item) []footerHint {
 		add(h.actionKey(hotkeyDelete), "delete")
 
 	case session.ItemTypeRemoteSession:
+		if remoteSessionIsQueued(item.RemoteSession) {
+			add(h.actionKey(hotkeyDelete), "delete")
+			add(newQuick, "new")
+			break
+		}
 		// A remote session row attaches over SSH just like a local session;
 		// without this case the curated footer dropped the attach hint for
 		// remote rows (PR #1289 review nit 1).

@@ -126,7 +126,7 @@ func (h *Home) SelectRemoteSession(remote, id string) bool {
 // refreshes when the remote confirms), then opens it in the embedded pane,
 // falling back to the SSH attach.
 func (h *Home) openRemoteSessionRow(remoteName string, rs *session.RemoteSessionInfo) tea.Cmd {
-	if rs == nil {
+	if rs == nil || h.showRemoteQueueNotice(remoteName, rs) {
 		return nil
 	}
 	if !h.embeddedLayout {
@@ -139,6 +139,24 @@ func (h *Home) openRemoteSessionRow(remoteName string, rs *session.RemoteSession
 		return h.startEmbeddedModeCmd()
 	}
 	return h.attachRemoteSession(remoteName, rs.ID)
+}
+
+func remoteSessionIsQueued(rs *session.RemoteSessionInfo) bool {
+	return rs != nil && strings.EqualFold(rs.Status, string(session.StatusQueued))
+}
+
+// showRemoteQueueNotice stops attach actions before they open a terminal for a
+// session that is waiting for a group slot and has no pane yet.
+func (h *Home) showRemoteQueueNotice(remoteName string, rs *session.RemoteSessionInfo) bool {
+	if !remoteSessionIsQueued(rs) {
+		return false
+	}
+	group := rs.Group
+	if group == "" {
+		group = session.DefaultGroupPath
+	}
+	h.setNotice("'%s' on %s is queued until group '%s' has a free slot", rs.Title, remoteName, group)
+	return true
 }
 
 // consumeRemoteFocus honors a fresh remote focus request. A session not in

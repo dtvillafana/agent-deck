@@ -422,15 +422,16 @@ func TestSSHRunnerCreateSessionWithOptions_QueuedStartIsNotAttachable(t *testing
 			case len(args) > 0 && args[0] == "add":
 				return []byte(`{"id":"queued-abc","title":"queued-title"}`), nil
 			case len(args) >= 2 && args[0] == "session" && args[1] == "start":
-				return []byte(`{"success":true,"id":"queued-abc","title":"queued-title","status":"queued"}`), nil
+				return []byte(`{"success":true,"id":"queued-abc","title":"queued-title","status":"queued","group":"misc"}`), nil
 			}
 			return nil, errors.New("unexpected runner call")
 		},
 	}
 
 	_, err := runner.CreateSessionWithOptions(context.Background(), RemoteAddOptions{Tool: "claude"})
-	if err == nil || !strings.Contains(err.Error(), "queued") {
-		t.Fatalf("CreateSessionWithOptions error = %v, want queued error", err)
+	var queued *RemoteSessionQueuedError
+	if !errors.As(err, &queued) || queued.Group != "misc" {
+		t.Fatalf("CreateSessionWithOptions error = %#v, want queued error for misc", err)
 	}
 }
 
