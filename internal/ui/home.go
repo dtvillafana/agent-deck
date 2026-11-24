@@ -3780,7 +3780,7 @@ func (h *Home) updateInner(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			h.setError(msg.err)
 		} else if msg.notice != "" {
-			h.setError(errors.New(msg.notice))
+			h.setNotice("%s", msg.notice)
 		}
 		if msg.created != nil {
 			// Draw the confirmed row now; the fetch below reconciles the
@@ -5459,6 +5459,9 @@ func (h *Home) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			case session.ItemTypeRemoteSession:
 				if item.RemoteSession != nil {
 					h.cursor = itemIndex
+					if h.showRemoteQueueNotice(item.RemoteName, item.RemoteSession) {
+						return h, nil
+					}
 					if h.enterEmbeddedMode() {
 						return h, h.startEmbeddedModeCmd()
 					}
@@ -5759,6 +5762,9 @@ func (h *Home) handleMainKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					}
 				}
 			case item.Type == session.ItemTypeRemoteSession && item.RemoteSession != nil:
+				if h.showRemoteQueueNotice(item.RemoteName, item.RemoteSession) {
+					return h, nil
+				}
 				if req, ok := buildRemoteAttachRequest(item.RemoteName, item.RemoteSession.ID, openAs); ok {
 					// The window runs this machine's `agent-deck remote
 					// attach`, not a raw ssh line, so Ctrl+V image paste
@@ -7317,7 +7323,7 @@ func (h *Home) attachSelectedLegacy() tea.Cmd {
 			return statusUpdateMsg{}
 		})
 	case session.ItemTypeRemoteSession:
-		if item.RemoteSession != nil {
+		if item.RemoteSession != nil && !h.showRemoteQueueNotice(item.RemoteName, item.RemoteSession) {
 			return h.attachRemoteSession(item.RemoteName, item.RemoteSession.ID)
 		}
 	}
@@ -8226,9 +8232,20 @@ func remoteCreateOutcomeMsg(remoteName string, opts session.RemoteAddOptions, cr
 		}
 		var queued *session.RemoteSessionQueuedError
 		if errors.As(err, &queued) {
-			// The session exists on the remote; it starts when the group
-			// has a free slot. Not a failure, and the row must show now.
-			return remoteSessionCreatedMsg{notice: fmt.Sprintf("created '%s' on %s, queued until group '%s' has a free slot", queued.Title, remoteName, opts.Group)}
+			group := queued.Group
+			if group == "" {
+				group = opts.Group
+			}
+			if group == "" {
+				group = session.DefaultGroupPath
+			}
+			return remoteSessionCreatedMsg{
+				notice: fmt.Sprintf("created '%s' on %s, queued until group '%s' has a free slot", queued.Title, remoteName, group),
+				created: &session.RemoteSessionInfo{
+					ID: queued.ID, Title: queued.Title, Group: group, Tool: tool,
+					Path: opts.Path, Status: string(session.StatusQueued), RemoteName: remoteName,
+				},
+			}
 		}
 		// Routed as the remote message so the terminal cleanup after
 		// tea.Exec (mouse, keyboard mode, resize) runs on failure too.

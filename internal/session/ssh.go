@@ -2933,6 +2933,7 @@ func (r *SSHRunner) CreateSessionWithOptions(ctx context.Context, opts RemoteAdd
 		ID     string `json:"id"`
 		Title  string `json:"title"`
 		Status string `json:"status"`
+		Group  string `json:"group"`
 	}
 	if err := json.Unmarshal(output, &result); err != nil {
 		return "", fmt.Errorf("failed to parse remote add output: %w", err)
@@ -2943,7 +2944,7 @@ func (r *SSHRunner) CreateSessionWithOptions(ctx context.Context, opts RemoteAdd
 
 	if addArgs[0] == "launch" {
 		if result.Status == string(StatusQueued) {
-			return "", &RemoteSessionQueuedError{ID: result.ID, Title: result.Title}
+			return "", &RemoteSessionQueuedError{ID: result.ID, Title: result.Title, Group: result.Group}
 		}
 		return result.ID, nil
 	}
@@ -2981,9 +2982,14 @@ func (r *SSHRunner) CreateSessionWithOptions(ctx context.Context, opts RemoteAdd
 	}
 	var startResult struct {
 		Status string `json:"status"`
+		Group  string `json:"group"`
 	}
 	if err := json.Unmarshal(bytes.TrimSpace(startOutput), &startResult); err == nil && startResult.Status == string(StatusQueued) {
-		return "", &RemoteSessionQueuedError{ID: result.ID, Title: result.Title}
+		group := startResult.Group
+		if group == "" {
+			group = result.Group
+		}
+		return "", &RemoteSessionQueuedError{ID: result.ID, Title: result.Title, Group: group}
 	}
 
 	return result.ID, nil
@@ -3081,6 +3087,7 @@ func parseRemoteStartSpawnFailure(output []byte, id, title string) *RemoteSessio
 type RemoteSessionQueuedError struct {
 	ID    string
 	Title string
+	Group string
 }
 
 func (e *RemoteSessionQueuedError) Error() string {
