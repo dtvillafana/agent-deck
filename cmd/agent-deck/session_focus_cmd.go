@@ -56,7 +56,11 @@ func handleSessionAttach(profile string, args []string) {
 
 	// Check if session exists
 	if !inst.Exists() {
-		fmt.Fprintf(os.Stderr, "Error: session '%s' is not running\n", inst.Title)
+		if inst.Status == session.StatusQueued {
+			fmt.Fprintf(os.Stderr, "Error: session '%s' is queued until group '%s' has a free slot\n", inst.Title, inst.GroupPath)
+		} else {
+			fmt.Fprintf(os.Stderr, "Error: session '%s' is not running\n", inst.Title)
+		}
 		exitCLI(1)
 	}
 

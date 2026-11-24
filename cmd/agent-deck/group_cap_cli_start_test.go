@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"os/exec"
+	"strings"
 	"testing"
 )
 
@@ -53,6 +54,10 @@ func TestSessionStart_GroupCapQueuesAfterACLIStart(t *testing.T) {
 	for _, title := range titles[1:] {
 		if got := start(title); got != "queued" {
 			t.Errorf("session start %s with one session live in a max_concurrent=1 group: status %q, want queued", title, got)
+		}
+		_, stderr, code := runAgentDeck(t, home, "session", "attach", title)
+		if code != 1 || !strings.Contains(stderr, "queued until group 'q' has a free slot") {
+			t.Errorf("session attach %s: exit %d, stderr %q; want the queue reason", title, code, stderr)
 		}
 	}
 }
