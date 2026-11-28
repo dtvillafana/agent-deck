@@ -141,7 +141,7 @@ func TestNotifySendBackend_FakeBinaryReceivesDeflaggedArgs(t *testing.T) {
 		t.Fatalf("read fake notify-send args: %v", err)
 	}
 	got := strings.Split(strings.TrimSuffix(string(raw), "\n"), "\n")
-	want := []string{"--", deflagged("--help"), deflagged("-h")}
+	want := []string{"--app-name=agent-deck", "--", deflagged("--help"), deflagged("-h")}
 	if len(got) != len(want) {
 		t.Fatalf("notify-send args = %q, want %q", got, want)
 	}
@@ -221,16 +221,14 @@ func TestTitle_FallsBackWhenSessionTitleIsEmpty(t *testing.T) {
 	}
 }
 
-// ShouldNotify is deliberately narrower than the parent-routing status set:
-// idle is a resting state for a long-lived agent, and notifying on it would
-// train the operator to ignore the banners.
-func TestShouldNotify_ExcludesIdle(t *testing.T) {
-	for _, s := range []string{"waiting", "error", "WAITING", "  error  "} {
+// Completed turns, input prompts and errors merit desktop alerts.
+func TestShouldNotify_IncludesIdle(t *testing.T) {
+	for _, s := range []string{"waiting", "error", "idle", "WAITING", "  error  ", " IDLE "} {
 		if !ShouldNotify(s) {
 			t.Errorf("ShouldNotify(%q) = false, want true", s)
 		}
 	}
-	for _, s := range []string{"idle", "running", "starting", "", "stopped"} {
+	for _, s := range []string{"running", "starting", "", "stopped"} {
 		if ShouldNotify(s) {
 			t.Errorf("ShouldNotify(%q) = true, want false", s)
 		}

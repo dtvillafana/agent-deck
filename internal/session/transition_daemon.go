@@ -1953,13 +1953,11 @@ func (d *TransitionDaemon) clearDesktopEdgeIfRunning(profile, instanceID, toStat
 // a silently dropped alert, which is the exact failure this feature exists to
 // remove, and a worse outcome than the banner spam the edge prevents.
 //
-// idle and starting are therefore releases too: both mean "not currently
-// asking the operator for anything". The attention statuses (waiting, error)
-// are deliberately NOT releases, because holding the edge while a session sits
-// in one of them is what stops per-poll spam.
+// Idle now raises a desktop notification too. Keep its edge until another
+// status is entered, rather than re-arming it on every poll.
 func releasesDesktopEdge(status string) bool {
 	switch normalizeStatusString(status) {
-	case string(StatusRunning), string(StatusIdle), string(StatusStarting):
+	case string(StatusRunning), string(StatusStarting):
 		return true
 	default:
 		return false

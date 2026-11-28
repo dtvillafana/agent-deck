@@ -2063,8 +2063,8 @@ type NotificationsConfig struct {
 	TransitionEvents *bool `toml:"transition_events,omitempty"`
 
 	// Desktop raises an OS notification (cmux's notification panel when
-	// available, otherwise a macOS banner) when a session starts waiting for
-	// input or errors out.
+	// available, otherwise a native desktop banner) when a session starts waiting
+	// for input, finishes a turn (idle), or errors out.
 	//
 	// Opt-in (default: false) because it is the only agent-deck signal that
 	// interrupts you outside the TUI, and the right cadence depends on how many
