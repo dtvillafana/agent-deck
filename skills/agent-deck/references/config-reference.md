@@ -1173,7 +1173,7 @@ desktop = false        # OS notification when a session needs input
 | `minimal` | bool | `false` | Compact icon+count summary instead of names. Disables the `Ctrl+b 1-6` jump bindings and ignores `show_all`. |
 | `sort` | string | `"waiting"` | Order of the bar, and so which session each `Ctrl+b` number key jumps to. `"waiting"` lists the session that started waiting most recently first (with `show_all`, sessions that are not waiting are placed by the same time, which falls back to when they were created). `"last_accessed"` lists the session you used most recently first, like Alt+Tab; sessions never used come last. Only visits through the agent-deck TUI count: attaching from its session list and jumping with the bar's `Ctrl+b` number keys. Attaching with the `agent-deck` CLI or the web UI does not change the order. Ignored when `minimal = true`, which shows no names. Any other value is treated as `"waiting"`. |
 | `transition_events` | bool | `true` | Send a tmux message to a session's **parent** when a child transitions (e.g. running → waiting). Per-session override: `agent-deck session set-transition-notify <id> off`. A muted child's completion is still recorded (`agent-deck session children`) and logged (`done_suppressed`), and is neither delivered nor exported. |
-| `desktop` | bool | `false` | Raise an **OS notification** when a session starts waiting for input or errors out. |
+| `desktop` | bool | `false` | Raise an **OS notification** when a session starts waiting for input, finishes a turn (`idle`), or errors out. |
 
 ### desktop
 
@@ -1181,7 +1181,7 @@ The other two signals only reach you in specific places: the notification bar is
 
 Delivery prefers the [cmux](https://cmux.com) terminal's notification panel when the `cmux` CLI is on `PATH`, which both raises a system banner and records the alert in cmux's sidebar so one missed while away is still discoverable. Without cmux, Linux falls back to `notify-send` and macOS falls back to a Notification Center banner via `osascript`. On Linux without either cmux or `notify-send`, desktop notifications are a silent no-op.
 
-Notifications fire on the transition into `waiting` or `error`, once per transition rather than once per poll. `idle` is deliberately excluded: for a long-lived interactive agent it is the resting state, not an event, and alerting on it trains you to ignore the banners. The per-session `set-transition-notify off` opt-out is honoured here too, so a single noisy session can be muted without turning the feature off globally.
+Notifications fire on the transition into `waiting`, `idle` or `error`, once per transition rather than once per poll. On Linux, notifications use the app name `agent-deck`, allowing notification daemons such as Hokum to apply per-app sound rules. The per-session `set-transition-notify off` opt-out is honoured here too, so a single noisy session can be muted without turning the feature off globally.
 
 Off by default because it is the only agent-deck signal that interrupts you outside the TUI.
 

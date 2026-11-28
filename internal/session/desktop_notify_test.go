@@ -118,17 +118,20 @@ func TestNotifyDesktop_HonorsPerSessionOptOut(t *testing.T) {
 	}
 }
 
-// Idle is a resting state for a long-lived interactive agent, not an event.
-func TestNotifyDesktop_IgnoresIdle(t *testing.T) {
+// A completed turn alerts once, not on every subsequent idle poll.
+func TestNotifyDesktop_IdleAlertsOnce(t *testing.T) {
 	writeDesktopNotifyConfig(t, "desktop = true")
 
 	rec := &recordingBackend{}
 	d := &TransitionDaemon{deskNotifier: desknotify.NewWithBackends(rec)}
-	d.notifyDesktop("default", &Instance{ID: "a", Title: "flow"}, string(StatusIdle))
-	d.waitDesktopNotifications()
+	for range 3 {
+		d.clearDesktopEdgeIfRunning("default", "a", string(StatusIdle))
+		d.notifyDesktop("default", &Instance{ID: "a", Title: "flow"}, string(StatusIdle))
+		d.waitDesktopNotifications()
+	}
 
-	if len(rec.titles) != 0 {
-		t.Errorf("delivered %d notifications for idle, want 0", len(rec.titles))
+	if len(rec.titles) != 1 {
+		t.Errorf("delivered %d notifications for idle, want 1", len(rec.titles))
 	}
 }
 
@@ -257,14 +260,12 @@ func TestNotifyDesktop_ReAlertsAfterSessionResumes(t *testing.T) {
 	}
 }
 
-// Only a return to running releases the edge. Any other status must leave it
-// intact, or the suppression it provides evaporates.
 // The attention statuses must NOT release the edge: holding it while a session
-// sits in waiting or error is what prevents per-poll spam.
+// sits in waiting, error or idle is what prevents per-poll spam.
 func TestClearDesktopEdge_AttentionStatusesDoNotRelease(t *testing.T) {
 	d := &TransitionDaemon{lastDesktopNotify: map[string]string{"default|a": "waiting"}}
 
-	for _, s := range []string{"waiting", "error", "stopped", ""} {
+	for _, s := range []string{"waiting", "error", "idle", "stopped", ""} {
 		d.clearDesktopEdgeIfRunning("default", "a", s)
 		if got := d.lastDesktopNotify["default|a"]; got != "waiting" {
 			t.Fatalf("status %q released the edge record (now %q); it must be held so a "+
@@ -273,14 +274,10 @@ func TestClearDesktopEdge_AttentionStatusesDoNotRelease(t *testing.T) {
 	}
 }
 
-// Every status meaning "this turn is over" must release the edge. Re-arming on
-// running ALONE is insufficient: the hook-candidate dispatch site exists for
-// turns too fast for a running snapshot to be observed, so waiting -> idle ->
-// waiting can happen with running never seen. Keyed on running only, the second
-// genuine prompt is silently suppressed.
+// Starting or running re-arms the edge for the next completed turn or prompt.
 func TestClearDesktopEdge_ProgressStatusesRelease(t *testing.T) {
 	for _, s := range []string{
-		string(StatusRunning), string(StatusIdle), string(StatusStarting),
+		string(StatusRunning), string(StatusStarting),
 	} {
 		d := &TransitionDaemon{lastDesktopNotify: map[string]string{"default|a": "waiting"}}
 		d.clearDesktopEdgeIfRunning("default", "a", s)
@@ -308,11 +305,13 @@ func TestNotifyDesktop_ReAlertsWhenOnlyIdleSeenBetweenPrompts(t *testing.T) {
 	d.waitDesktopNotifications()
 	// The daemon never observes running: the turn completed between polls.
 	d.clearDesktopEdgeIfRunning("default", inst.ID, string(StatusIdle))
+	d.notifyDesktop("default", inst, string(StatusIdle))
+	d.waitDesktopNotifications()
 	d.notifyDesktop("default", inst, string(StatusWaiting))
 	d.waitDesktopNotifications()
 
-	if len(rec.titles) != 2 {
-		t.Fatalf("delivered %d notifications, want 2: a second genuine prompt was "+
+	if len(rec.titles) != 3 {
+		t.Fatalf("delivered %d notifications, want 3: a second genuine prompt was "+
 			"suppressed because only idle, not running, was seen in between", len(rec.titles))
 	}
 }

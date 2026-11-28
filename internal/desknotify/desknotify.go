@@ -164,7 +164,7 @@ func (notifySendBackend) Notify(ctx context.Context, title, body string) error {
 	// #nosec G204 -- title/body are separate argv elements and no shell parses
 	// them. -- ends option parsing, while deflagged preserves the same defense
 	// in depth used by the cmux backend for exact help flags.
-	return exec.CommandContext(ctx, "notify-send", "--", deflagged(title), deflagged(body)).Run()
+	return exec.CommandContext(ctx, "notify-send", "--app-name=agent-deck", "--", deflagged(title), deflagged(body)).Run()
 }
 
 // osascriptBackend is the macOS fallback for a terminal that is not cmux. It
@@ -244,13 +244,11 @@ func (nt *Notifier) Notify(n Notification) string {
 
 // ShouldNotify reports whether a status merits interrupting the operator.
 //
-// Deliberately narrower than the set the parent-routing path uses. "idle" is
-// excluded: for a long-lived interactive agent it is the resting state, not an
-// event, and notifying on it would train the operator to ignore the banners.
-// A session that stops needing you is not a session that needs you.
+// Include completed turns as well as permission/input prompts and errors.
+// The caller's edge tracking suppresses repeated polls of a resting session.
 func ShouldNotify(toStatus string) bool {
 	switch strings.ToLower(strings.TrimSpace(toStatus)) {
-	case "waiting", "error":
+	case "waiting", "error", "idle":
 		return true
 	default:
 		return false
